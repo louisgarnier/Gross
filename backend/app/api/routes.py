@@ -6,7 +6,7 @@ This defines the endpoints that the frontend will call.
 
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import AnalysisResponse
-from app.services.mock_data import get_mock_analysis
+from app.services.ratio_fetcher import fetch_analysis
 
 router = APIRouter()
 
@@ -16,7 +16,8 @@ async def analyze_ticker(ticker: str):
     """
     Analyze a stock ticker and return financial ratios from multiple sources.
     
-    For now, this returns mock data. Later, it will call real scrapers.
+    This now uses real scrapers (Finviz for Gross Margin and P/E Ratio).
+    Other sources will be added incrementally.
     
     Args:
         ticker: Stock ticker symbol (e.g., PLTR, NVDA, AAPL)
@@ -27,10 +28,8 @@ async def analyze_ticker(ticker: str):
     if not ticker or len(ticker) > 10:
         raise HTTPException(status_code=400, detail="Invalid ticker symbol")
     
-    # For now, return mock data
-    # Later, this will call the actual scraper services
     try:
-        analysis = get_mock_analysis(ticker)
+        analysis = fetch_analysis(ticker)
         return analysis
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing ticker: {str(e)}")

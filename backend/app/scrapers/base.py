@@ -17,13 +17,27 @@ class BaseScraper:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
+        self._last_request_time = 0
+        self._min_delay = 2  # Minimum delay between requests (seconds) to respect rate limits
     
     def fetch_page(self, url: str, retries: int = 3) -> Optional[BeautifulSoup]:
-        """Fetch and parse a web page."""
+        """
+        Fetch and parse a web page with rate limiting protection.
+        
+        Adds a delay between requests to avoid being blocked by the website.
+        """
+        # Rate limiting: wait if we made a request too recently
+        current_time = time.time()
+        time_since_last = current_time - self._last_request_time
+        if time_since_last < self._min_delay:
+            sleep_time = self._min_delay - time_since_last
+            time.sleep(sleep_time)
+        
         for attempt in range(retries):
             try:
                 response = self.session.get(url, timeout=10)
                 response.raise_for_status()
+                self._last_request_time = time.time()  # Update last request time
                 return BeautifulSoup(response.content, 'lxml')
             except Exception as e:
                 if attempt < retries - 1:
