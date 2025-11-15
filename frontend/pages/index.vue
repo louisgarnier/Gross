@@ -1,85 +1,100 @@
 <template>
-  <div class="min-h-screen bg-gray-50 p-8">
-    <div class="max-w-4xl mx-auto">
-      <h1 class="text-3xl font-bold mb-8 text-gray-900">
-        Gross Financial Analysis - Phase 2 Test
-      </h1>
+  <div class="min-h-screen bg-gray-50">
+    <!-- Navigation Tabs -->
+    <div class="bg-white border-b border-gray-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav class="flex space-x-8" aria-label="Tabs">
+          <a
+            href="#"
+            class="border-blue-500 text-blue-600 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+          >
+            Stock Analysis
+          </a>
+          <a
+            href="#"
+            class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+          >
+            Batch Analysis
+          </a>
+          <a
+            href="#"
+            class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+          >
+            Stock Filter
+          </a>
+        </nav>
+      </div>
+    </div>
 
-      <!-- Backend Connection Test -->
-      <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 class="text-xl font-semibold mb-4">Backend Connection Test</h2>
-        
-        <div class="space-y-4">
-          <!-- Health Check -->
-          <div>
-            <button
-              @click="testHealth"
-              :disabled="healthLoading"
-              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
-            >
-              {{ healthLoading ? 'Testing...' : 'Test Health Check' }}
-            </button>
-            <div v-if="healthStatus" class="mt-2">
-              <span :class="healthStatus === 'success' ? 'text-green-600' : 'text-red-600'">
-                {{ healthStatus === 'success' ? '✅ Backend is healthy' : '❌ Backend connection failed' }}
-              </span>
-              <pre v-if="healthData" class="mt-2 text-sm bg-gray-100 p-2 rounded">{{ JSON.stringify(healthData, null, 2) }}</pre>
-            </div>
-          </div>
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="space-y-6">
+        <!-- Header -->
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Stock Analysis</h1>
+          <p class="mt-2 text-sm text-gray-600">
+            Analyze financial ratios from multiple sources
+          </p>
+        </div>
 
-          <!-- Test Stock Analysis -->
-          <div>
-            <div class="flex gap-2 mb-2">
-              <input
-                v-model="testTicker"
-                type="text"
-                placeholder="Enter ticker (e.g., PLTR)"
-                class="px-4 py-2 border rounded flex-1"
-                @keyup.enter="testAnalysis"
-              />
-              <button
-                @click="testAnalysis"
-                :disabled="analysisLoading"
-                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400"
-              >
-                {{ analysisLoading ? 'Loading...' : 'Test Analysis' }}
-              </button>
+        <!-- Loading State -->
+        <div v-if="isLoading" class="bg-white rounded-lg shadow p-8 text-center">
+          <div class="animate-spin text-blue-500 text-4xl mb-4">⏳</div>
+          <p class="text-gray-600">Analyzing stock data...</p>
+        </div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <span class="text-red-400 text-xl">✗</span>
             </div>
-            <div v-if="analysisStatus" class="mt-2">
-              <span :class="analysisStatus === 'success' ? 'text-green-600' : 'text-red-600'">
-                {{ analysisStatus === 'success' ? '✅ API call successful' : '❌ API call failed' }}
-              </span>
-              <div v-if="analysisError" class="mt-2 text-red-600 text-sm">
-                Error: {{ analysisError }}
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-red-800">Error</h3>
+              <div class="mt-2 text-sm text-red-700">
+                <p>{{ error }}</p>
               </div>
-              <pre v-if="analysisData" class="mt-2 text-sm bg-gray-100 p-2 rounded overflow-auto max-h-96">{{ JSON.stringify(analysisData, null, 2) }}</pre>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Quick Test Buttons -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold mb-4">Quick Test Stocks</h2>
-        <div class="flex gap-2">
-          <button
-            @click="quickTest('PLTR')"
-            class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-          >
-            Test PLTR
-          </button>
-          <button
-            @click="quickTest('NVDA')"
-            class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-          >
-            Test NVDA
-          </button>
-          <button
-            @click="quickTest('MSFT')"
-            class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-          >
-            Test MSFT
-          </button>
+        <!-- Results Table -->
+        <div v-else-if="analysisData">
+          <div class="mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">
+              Analysis for {{ analysisData.ticker }}
+            </h2>
+          </div>
+          <SummaryTable
+            :ratios="analysisData.ratios"
+            :overall-score="analysisData.overall_score"
+            :max-score="analysisData.max_score"
+          />
+        </div>
+
+        <!-- Empty State -->
+        <div v-else class="bg-white rounded-lg shadow p-8 text-center">
+          <div class="text-gray-400 text-6xl mb-4">📊</div>
+          <h3 class="text-lg font-medium text-gray-900 mb-2">No analysis yet</h3>
+          <p class="text-gray-600">Enter a stock ticker below to get started</p>
+        </div>
+
+        <!-- Stock Input -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Analyze Stock</h3>
+          <StockInput
+            ref="stockInputRef"
+            @analyze="handleAnalyze"
+          />
+        </div>
+
+        <!-- Learning Opportunity Section (Optional) -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 class="text-lg font-medium text-blue-900 mb-2">💡 Learning Opportunity</h3>
+          <p class="text-sm text-blue-800">
+            This tool compares financial ratios from multiple sources to help you verify data accuracy.
+            Each ratio is evaluated against target thresholds to provide a comprehensive analysis.
+          </p>
         </div>
       </div>
     </div>
@@ -87,63 +102,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useApi } from '~/composables/useApi'
+import { useStockAnalysis } from '~/composables/useStockAnalysis'
 
-const { healthCheck, analyzeStock } = useApi()
+const { 
+  currentTicker, 
+  analysisData, 
+  isLoading, 
+  error, 
+  fetchAnalysis,
+  clearResults 
+} = useStockAnalysis()
 
-// Health check state
-const healthLoading = ref(false)
-const healthStatus = ref<'success' | 'error' | null>(null)
-const healthData = ref<any>(null)
+const stockInputRef = ref<any>(null)
 
-// Analysis state
-const testTicker = ref('PLTR')
-const analysisLoading = ref(false)
-const analysisStatus = ref<'success' | 'error' | null>(null)
-const analysisData = ref<any>(null)
-const analysisError = ref<string | null>(null)
-
-const testHealth = async () => {
-  healthLoading.value = true
-  healthStatus.value = null
-  healthData.value = null
-  
-  try {
-    const data = await healthCheck()
-    healthData.value = data
-    healthStatus.value = 'success'
-  } catch (error: any) {
-    healthStatus.value = 'error'
-    healthData.value = { error: error.message }
-  } finally {
-    healthLoading.value = false
+const handleAnalyze = async (ticker: string) => {
+  // Set loading state on input component
+  if (stockInputRef.value) {
+    stockInputRef.value.setLoading(true)
+    stockInputRef.value.setError(null)
   }
-}
-
-const testAnalysis = async () => {
-  if (!testTicker.value.trim()) return
   
-  analysisLoading.value = true
-  analysisStatus.value = null
-  analysisData.value = null
-  analysisError.value = null
+  await fetchAnalysis(ticker)
   
-  try {
-    const data = await analyzeStock(testTicker.value.trim())
-    analysisData.value = data
-    analysisStatus.value = 'success'
-  } catch (error: any) {
-    analysisStatus.value = 'error'
-    analysisError.value = error.message || 'Unknown error'
-  } finally {
-    analysisLoading.value = false
+  // Update input component state after fetch
+  if (stockInputRef.value) {
+    stockInputRef.value.setLoading(false)
+    if (error.value) {
+      stockInputRef.value.setError(error.value)
+    } else {
+      stockInputRef.value.setError(null)
+    }
   }
-}
-
-const quickTest = (ticker: string) => {
-  testTicker.value = ticker
-  testAnalysis()
 }
 </script>
-
