@@ -31,11 +31,11 @@ class MacrotrendsScraper(BaseScraper):
         This is a simplified mapping. In production, you might need to
         scrape the ticker page first to get the company name slug.
         
-        For now, we'll try common patterns or use the ticker directly.
+        For now, we'll use common mappings based on Macrotrends URL structure.
         """
-        # Common mappings (can be expanded)
+        # Common mappings (Macrotrends URL format)
         company_map = {
-            "PLTR": "palantir",
+            "PLTR": "palantir-technologies",
             "NVDA": "nvidia",
             "MSFT": "microsoft",
             "AAPL": "apple",
@@ -164,6 +164,18 @@ class MacrotrendsScraper(BaseScraper):
         """
         Get FCF Margin percentage from Macrotrends.
         
+        IMPORTANT: Macrotrends does NOT display FCF Margin directly.
+        We calculate it using the standard formula:
+        
+        FCF Margin = (Free Cash Flow / Revenue) × 100
+        
+        Data Sources:
+        - Free Cash Flow: From cash-flow-statement page
+        - Revenue: From financial-statements page
+        
+        This calculated value will be compared with QuickFS and Koyfin values
+        for verification. See MACROTRENDS_FCF_MARGIN.md for full documentation.
+        
         Uses caching to avoid repeated requests to the same ticker.
         
         Args:
@@ -181,16 +193,32 @@ class MacrotrendsScraper(BaseScraper):
         if cached_value is not None:
             return cached_value
         
-        # Fetch from website
-        soup = self._get_metric_page(ticker_upper, "free-cash-flow-margin")
-        if not soup:
-            return None
+        # Get Free Cash Flow from cash-flow-statement
+        cash_flow_soup = self._get_metric_page(ticker_upper, "cash-flow-statement")
+        free_cash_flow = None
+        if cash_flow_soup:
+            # Look for "Free Cash Flow" in the page
+            free_cash_flow = self._find_latest_value(cash_flow_soup, metric_name="Free Cash Flow")
+            # If not found, try "Operating Cash Flow" - "Capital Expenditures" (simplified)
+            if free_cash_flow is None:
+                operating_cf = self._find_latest_value(cash_flow_soup, metric_name="Operating Cash Flow")
+                capex = self._find_latest_value(cash_flow_soup, metric_name="Capital Expenditures")
+                if operating_cf is not None and capex is not None:
+                    free_cash_flow = operating_cf - abs(capex)  # Capex is usually negative
         
-        # Find the latest value (pass metric name to help find correct column)
-        value = self._find_latest_value(soup, metric_name="Free Cash Flow Margin")
-        if value is not None:
-            scraper_cache.set(cache_key, value)  # Cache the result
-            return value
+        # Get Revenue from financial-statements
+        financials_soup = self._get_metric_page(ticker_upper, "financial-statements")
+        revenue = None
+        if financials_soup:
+            revenue = self._find_latest_value(financials_soup, metric_name="Revenue")
+            if revenue is None:
+                revenue = self._find_latest_value(financials_soup, metric_name="Total Revenue")
+        
+        # Calculate FCF Margin = (Free Cash Flow / Revenue) × 100
+        if free_cash_flow is not None and revenue is not None and revenue != 0:
+            fcf_margin = (free_cash_flow / revenue) * 100
+            scraper_cache.set(cache_key, fcf_margin)
+            return fcf_margin
         
         return None
 

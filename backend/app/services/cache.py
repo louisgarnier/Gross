@@ -59,6 +59,7 @@ class SimpleCache:
         self.cache.clear()
 
 
-# Global cache instance (1 hour TTL)
-scraper_cache = SimpleCache(ttl_seconds=3600)
+# Global cache instance (4 hours TTL for Morningstar - financial data doesn't change frequently)
+# This significantly reduces Selenium calls which are slow (~8-10 seconds each)
+scraper_cache = SimpleCache(ttl_seconds=14400)  # 4 hours
 

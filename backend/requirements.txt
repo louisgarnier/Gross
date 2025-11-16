@@ -8,4 +8,7 @@ pytest>=7.4.0
 pytest-asyncio>=0.21.0
 yfinance>=0.2.0
 pandas>=2.0.0
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+undetected-chromedriver>=3.5.0
 

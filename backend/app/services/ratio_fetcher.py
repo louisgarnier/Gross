@@ -9,6 +9,7 @@ from app.models.schemas import AnalysisResponse, RatioResult, SourceValue
 from app.scrapers.finviz import FinvizScraper
 from app.scrapers.yahoo import YahooScraper
 from app.scrapers.macrotrends import MacrotrendsScraper
+from app.scrapers.morningstar import MorningstarScraper
 
 
 def calculate_consensus(values: List[SourceValue]) -> Optional[float]:
@@ -104,15 +105,17 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     finviz = FinvizScraper()
     yahoo = YahooScraper()
     macrotrends = MacrotrendsScraper()
+    morningstar = MorningstarScraper()
     
-    # Fetch Gross Margin from Finviz and Macrotrends
+    # Fetch Gross Margin from Finviz, Macrotrends, and Morningstar
     finviz_gross_margin = finviz.get_gross_margin(ticker_upper)
     macrotrends_gross_margin = macrotrends.get_gross_margin(ticker_upper)
+    morningstar_gross_margin = morningstar.get_gross_margin(ticker_upper)
     
     # Build Gross Margin ratio
     gross_margin_values = [
         SourceValue(source="Finviz", value=finviz_gross_margin),
-        SourceValue(source="Morningstar", value=None),  # TODO: Add Morningstar scraper
+        SourceValue(source="Morningstar", value=morningstar_gross_margin),
         SourceValue(source="Macrotrends", value=macrotrends_gross_margin)
     ]
     gross_margin_consensus = calculate_consensus(gross_margin_values)
