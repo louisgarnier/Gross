@@ -19,7 +19,8 @@ class RatioResult(BaseModel):
     """Result for a single financial ratio (e.g., Gross Margin, ROIC, etc.)."""
     metric: str
     values: List[SourceValue]  # List of values from different sources
-    consensus: Optional[float] = None  # Average or median of all source values
+    consensus: Optional[float] = None  # Average of all source values (for display)
+    spread: Optional[float] = None  # Spread (max - min) between sources to detect inconsistencies
     target: str  # Target threshold (e.g., ">60%", ">10-12%")
     status: str  # "Pass", "Fail", or "Info Only"
 

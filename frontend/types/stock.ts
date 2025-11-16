@@ -14,6 +14,7 @@ export interface RatioResult {
   metric: string
   values: SourceValue[]
   consensus: number | null
+  spread: number | null  // Spread (max - min) between sources to detect inconsistencies
   target: string
   status: 'Pass' | 'Fail' | 'Info Only'
 }

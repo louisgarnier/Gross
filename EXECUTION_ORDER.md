@@ -305,12 +305,12 @@ We're creating a "contract" between the backend and frontend - like a menu at a 
 - [x] **TEST API CALL**: Test scraper with PLTR → Get value ✅ (None - no debt, expected)
 - [x] **TEST API CALL**: Test scraper with NVDA → Get value ✅ (~341x using Annual data)
 - [x] **POLICY CHANGE**: Changed from TTM to Annual for consistency with other sources ✅
-- [ ] **VERIFY SOURCE**: Open https://finance.yahoo.com/quote/NVDA/financials → Check EBIT Annual and Interest Expense Annual ⏳ **PENDING USER VERIFICATION**
-- [ ] **COMPARE**: Does scraper value match website? (Note: Using Annual, not TTM, to match Finviz)
+- [x] **VERIFY SOURCE**: Open https://finance.yahoo.com/quote/NVDA/financials → Check EBIT Annual and Interest Expense Annual ✅ **USER VERIFIED**
+- [x] **COMPARE**: Does scraper value match website? ✅ **YES** - Using Annual data matches Yahoo Finance
 - [x] **ONLY AFTER VERIFICATION**: Integrate into API ✅ (Already integrated in ratio_fetcher)
 - [ ] Test through frontend ⏳
 
-**Validation**: ⏳ **PENDING USER VERIFICATION** - Scraper uses **ANNUAL** data (not TTM) for consistency with Finviz and other sources. See `DATA_PERIOD_POLICY.md` for details.
+**Validation**: ✅ **COMPLETE** - Scraper uses **ANNUAL** data (not TTM) for consistency with Finviz and other sources. Verified by user. See `DATA_PERIOD_POLICY.md` for details.
 
 #### 4.4: Yahoo Finance Scraper - P/E Ratio
 - [x] Implement `get_pe_ratio(ticker)` method in yahoo.py ✅ (Using trailingPE)

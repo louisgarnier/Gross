@@ -7,6 +7,7 @@ This service coordinates all scrapers and aggregates the data.
 from typing import List, Optional
 from app.models.schemas import AnalysisResponse, RatioResult, SourceValue
 from app.scrapers.finviz import FinvizScraper
+from app.scrapers.yahoo import YahooScraper
 
 
 def calculate_consensus(values: List[SourceValue]) -> Optional[float]:
@@ -23,6 +24,24 @@ def calculate_consensus(values: List[SourceValue]) -> Optional[float]:
     if not valid_values:
         return None
     return sum(valid_values) / len(valid_values)
+
+
+def calculate_spread(values: List[SourceValue]) -> Optional[float]:
+    """
+    Calculate spread (max - min) between sources to detect inconsistencies.
+    
+    This helps identify when sources disagree significantly.
+    
+    Args:
+        values: List of SourceValue objects
+        
+    Returns:
+        Spread (max - min) of non-null values, or None if less than 2 values
+    """
+    valid_values = [v.value for v in values if v.value is not None]
+    if len(valid_values) < 2:
+        return None
+    return max(valid_values) - min(valid_values)
 
 
 def evaluate_status(metric: str, consensus: Optional[float], target: str) -> str:
@@ -82,6 +101,7 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     
     # Initialize scrapers
     finviz = FinvizScraper()
+    yahoo = YahooScraper()
     
     # Fetch Gross Margin from Finviz
     finviz_gross_margin = finviz.get_gross_margin(ticker_upper)
@@ -93,6 +113,7 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
         SourceValue(source="Macrotrends", value=None)  # TODO: Add Macrotrends scraper
     ]
     gross_margin_consensus = calculate_consensus(gross_margin_values)
+    gross_margin_spread = calculate_spread(gross_margin_values)
     gross_margin_status = evaluate_status("Gross Margin", gross_margin_consensus, ">60%")
     
     # Build ROIC ratio (no scrapers yet)
@@ -102,6 +123,7 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
         SourceValue(source="Koyfin", value=None)  # TODO: Add Koyfin scraper
     ]
     roic_consensus = calculate_consensus(roic_values)
+    roic_spread = calculate_spread(roic_values)
     roic_status = evaluate_status("ROIC", roic_consensus, ">10-12%")
     
     # Build FCF Margin ratio (no scrapers yet)
@@ -111,27 +133,32 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
         SourceValue(source="Macrotrends", value=None)  # TODO: Add Macrotrends scraper
     ]
     fcf_margin_consensus = calculate_consensus(fcf_margin_values)
+    fcf_margin_spread = calculate_spread(fcf_margin_values)
     fcf_margin_status = evaluate_status("FCF Margin", fcf_margin_consensus, ">20%")
     
-    # Build Interest Coverage ratio (no scrapers yet)
+    # Build Interest Coverage ratio
+    yahoo_interest_coverage = yahoo.get_interest_coverage(ticker_upper)
     interest_coverage_values = [
         SourceValue(source="Morningstar", value=None),  # TODO: Add Morningstar scraper
         SourceValue(source="Koyfin", value=None),  # TODO: Add Koyfin scraper
-        SourceValue(source="Yahoo Finance", value=None)  # TODO: Add Yahoo scraper
+        SourceValue(source="Yahoo Finance", value=yahoo_interest_coverage)
     ]
     interest_coverage_consensus = calculate_consensus(interest_coverage_values)
+    interest_coverage_spread = calculate_spread(interest_coverage_values)
     interest_coverage_status = evaluate_status("Interest Coverage", interest_coverage_consensus, "≥3-4x")
     
-    # Fetch P/E Ratio from Finviz (will add later in Phase 4.2)
+    # Fetch P/E Ratio from Finviz and Yahoo Finance
     finviz_pe = finviz.get_pe_ratio(ticker_upper)
+    yahoo_pe = yahoo.get_pe_ratio(ticker_upper)
     
     # Build P/E Ratio
     pe_values = [
         SourceValue(source="Finviz", value=finviz_pe),
-        SourceValue(source="Yahoo Finance", value=None),  # TODO: Add Yahoo scraper
+        SourceValue(source="Yahoo Finance", value=yahoo_pe),
         SourceValue(source="Morningstar", value=None)  # TODO: Add Morningstar scraper
     ]
     pe_consensus = calculate_consensus(pe_values)
+    pe_spread = calculate_spread(pe_values)
     pe_status = evaluate_status("P/E Ratio", pe_consensus, "Info Only")
     
     # Build ratios list
@@ -140,6 +167,7 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
             metric="Gross Margin",
             values=gross_margin_values,
             consensus=gross_margin_consensus,
+            spread=gross_margin_spread,
             target=">60%",
             status=gross_margin_status
         ),
@@ -147,6 +175,7 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
             metric="ROIC",
             values=roic_values,
             consensus=roic_consensus,
+            spread=roic_spread,
             target=">10-12%",
             status=roic_status
         ),
@@ -154,6 +183,7 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
             metric="FCF Margin",
             values=fcf_margin_values,
             consensus=fcf_margin_consensus,
+            spread=fcf_margin_spread,
             target=">20%",
             status=fcf_margin_status
         ),
@@ -161,6 +191,7 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
             metric="Interest Coverage",
             values=interest_coverage_values,
             consensus=interest_coverage_consensus,
+            spread=interest_coverage_spread,
             target="≥3-4x",
             status=interest_coverage_status
         ),
@@ -168,6 +199,7 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
             metric="P/E Ratio",
             values=pe_values,
             consensus=pe_consensus,
+            spread=pe_spread,
             target="Info Only",
             status=pe_status
         )
