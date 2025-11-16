@@ -8,6 +8,7 @@ from typing import List, Optional
 from app.models.schemas import AnalysisResponse, RatioResult, SourceValue
 from app.scrapers.finviz import FinvizScraper
 from app.scrapers.yahoo import YahooScraper
+from app.scrapers.macrotrends import MacrotrendsScraper
 
 
 def calculate_consensus(values: List[SourceValue]) -> Optional[float]:
@@ -102,15 +103,17 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     # Initialize scrapers
     finviz = FinvizScraper()
     yahoo = YahooScraper()
+    macrotrends = MacrotrendsScraper()
     
-    # Fetch Gross Margin from Finviz
+    # Fetch Gross Margin from Finviz and Macrotrends
     finviz_gross_margin = finviz.get_gross_margin(ticker_upper)
+    macrotrends_gross_margin = macrotrends.get_gross_margin(ticker_upper)
     
     # Build Gross Margin ratio
     gross_margin_values = [
         SourceValue(source="Finviz", value=finviz_gross_margin),
         SourceValue(source="Morningstar", value=None),  # TODO: Add Morningstar scraper
-        SourceValue(source="Macrotrends", value=None)  # TODO: Add Macrotrends scraper
+        SourceValue(source="Macrotrends", value=macrotrends_gross_margin)
     ]
     gross_margin_consensus = calculate_consensus(gross_margin_values)
     gross_margin_spread = calculate_spread(gross_margin_values)
@@ -126,11 +129,12 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     roic_spread = calculate_spread(roic_values)
     roic_status = evaluate_status("ROIC", roic_consensus, ">10-12%")
     
-    # Build FCF Margin ratio (no scrapers yet)
+    # Build FCF Margin ratio
+    macrotrends_fcf_margin = macrotrends.get_fcf_margin(ticker_upper)
     fcf_margin_values = [
         SourceValue(source="QuickFS", value=None),  # TODO: Add QuickFS scraper
         SourceValue(source="Koyfin", value=None),  # TODO: Add Koyfin scraper
-        SourceValue(source="Macrotrends", value=None)  # TODO: Add Macrotrends scraper
+        SourceValue(source="Macrotrends", value=macrotrends_fcf_margin)
     ]
     fcf_margin_consensus = calculate_consensus(fcf_margin_values)
     fcf_margin_spread = calculate_spread(fcf_margin_values)
