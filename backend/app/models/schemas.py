@@ -34,4 +34,5 @@ class AnalysisResponse(BaseModel):
     ratios: List[RatioResult]  # List of all 5 ratios
     overall_score: int  # Number of ratios that passed (0-4)
     max_score: int  # Maximum possible score (4, since P/E is info only)
+    execution_time: Optional[float] = None  # Time taken to fetch all data (in seconds)
 

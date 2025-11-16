@@ -81,6 +81,73 @@ class MorningstarScraper:
         # We can expand this later if needed
         return "xnas"  # Default to NASDAQ
     
+    def _get_key_ratios_page_selenium(self, ticker: str) -> Optional[BeautifulSoup]:
+        """
+        Fetch the key ratios page using Selenium to render JavaScript.
+        
+        Returns BeautifulSoup of the rendered page.
+        """
+        ticker_upper = self.clean_ticker(ticker)
+        exchange = self._get_exchange(ticker_upper)
+        url = f"{self.BASE_URL}/{exchange}/{ticker_upper.lower()}/key-ratios"
+        
+        # Rate limiting
+        current_time = time.time()
+        time_since_last = current_time - self._last_request_time
+        if time_since_last < self._min_delay:
+            time.sleep(self._min_delay - time_since_last)
+        
+        driver = None
+        try:
+            driver = self._get_driver()
+            
+            # Check if driver is still valid
+            try:
+                driver.current_url
+            except:
+                if self._driver:
+                    try:
+                        self._driver.quit()
+                    except:
+                        pass
+                self._driver = None
+                driver = self._get_driver()
+            
+            driver.get(url)
+            
+            # Wait for page to load
+            try:
+                WebDriverWait(driver, 10).until(
+                    lambda d: d.execute_script("return document.readyState") == "complete"
+                )
+                
+                # Wait for ROIC or table content
+                try:
+                    WebDriverWait(driver, 8).until(
+                        EC.any_of(
+                            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'ROIC')]")),
+                            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Return on Invested Capital')]")),
+                            EC.presence_of_element_located((By.TAG_NAME, "table"))
+                        )
+                    )
+                except TimeoutException:
+                    print(f"Warning: Could not find ROIC or table on {url}")
+                    time.sleep(1)
+                
+            except TimeoutException:
+                print(f"Timeout waiting for page to load on {url}")
+                time.sleep(2)
+            
+            # Get page source after JavaScript execution
+            page_source = driver.page_source
+            self._last_request_time = time.time()
+            
+            return BeautifulSoup(page_source, 'lxml')
+            
+        except Exception as e:
+            print(f"Error fetching Morningstar Key Ratios page with Selenium: {e}")
+            return None
+    
     def _get_key_metrics_page_selenium(self, ticker: str) -> Optional[BeautifulSoup]:
         """
         Fetch the key metrics page using Selenium to render JavaScript.

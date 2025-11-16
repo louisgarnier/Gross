@@ -4,12 +4,19 @@ Service for fetching financial ratios from multiple sources.
 This service coordinates all scrapers and aggregates the data.
 """
 
+import time
+import logging
 from typing import List, Optional
 from app.models.schemas import AnalysisResponse, RatioResult, SourceValue
 from app.scrapers.finviz import FinvizScraper
 from app.scrapers.yahoo import YahooScraper
 from app.scrapers.macrotrends import MacrotrendsScraper
 from app.scrapers.morningstar import MorningstarScraper
+from app.scrapers.quickfs import QuickFSScraper
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def calculate_consensus(values: List[SourceValue]) -> Optional[float]:
@@ -99,18 +106,25 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     Returns:
         AnalysisResponse with all ratios and their status
     """
+    start_time = time.time()
     ticker_upper = ticker.upper().strip()
+    
+    logger.info(f"🚀 Starting analysis for {ticker_upper}")
     
     # Initialize scrapers
     finviz = FinvizScraper()
     yahoo = YahooScraper()
     macrotrends = MacrotrendsScraper()
     morningstar = MorningstarScraper()
+    quickfs = QuickFSScraper()
     
     # Fetch Gross Margin from Finviz, Macrotrends, and Morningstar
-    finviz_gross_margin = finviz.get_gross_margin(ticker_upper)
-    macrotrends_gross_margin = macrotrends.get_gross_margin(ticker_upper)
-    morningstar_gross_margin = morningstar.get_gross_margin(ticker_upper)
+    logger.info(f"📊 Fetching Gross Margin...")
+    gm_start = time.time()
+    finviz_gross_margin = _time_scraper_call("Finviz Gross Margin", lambda: finviz.get_gross_margin(ticker_upper))
+    macrotrends_gross_margin = _time_scraper_call("Macrotrends Gross Margin", lambda: macrotrends.get_gross_margin(ticker_upper))
+    morningstar_gross_margin = _time_scraper_call("Morningstar Gross Margin", lambda: morningstar.get_gross_margin(ticker_upper))
+    logger.info(f"⏱️  Gross Margin total: {time.time() - gm_start:.2f}s")
     
     # Build Gross Margin ratio
     gross_margin_values = [
@@ -122,9 +136,15 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     gross_margin_spread = calculate_spread(gross_margin_values)
     gross_margin_status = evaluate_status("Gross Margin", gross_margin_consensus, ">60%")
     
-    # Build ROIC ratio (no scrapers yet)
+    # Fetch ROIC from QuickFS
+    logger.info(f"📊 Fetching ROIC...")
+    roic_start = time.time()
+    quickfs_roic = _time_scraper_call("QuickFS ROIC", lambda: quickfs.get_roic(ticker_upper))
+    logger.info(f"⏱️  ROIC total: {time.time() - roic_start:.2f}s")
+    
+    # Build ROIC ratio
     roic_values = [
-        SourceValue(source="QuickFS", value=None),  # TODO: Add QuickFS scraper
+        SourceValue(source="QuickFS", value=quickfs_roic),
         SourceValue(source="Morningstar", value=None),  # TODO: Add Morningstar scraper
         SourceValue(source="Koyfin", value=None)  # TODO: Add Koyfin scraper
     ]
@@ -133,7 +153,10 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     roic_status = evaluate_status("ROIC", roic_consensus, ">10-12%")
     
     # Build FCF Margin ratio
-    macrotrends_fcf_margin = macrotrends.get_fcf_margin(ticker_upper)
+    logger.info(f"📊 Fetching FCF Margin...")
+    fcf_start = time.time()
+    macrotrends_fcf_margin = _time_scraper_call("Macrotrends FCF Margin", lambda: macrotrends.get_fcf_margin(ticker_upper))
+    logger.info(f"⏱️  FCF Margin total: {time.time() - fcf_start:.2f}s")
     fcf_margin_values = [
         SourceValue(source="QuickFS", value=None),  # TODO: Add QuickFS scraper
         SourceValue(source="Koyfin", value=None),  # TODO: Add Koyfin scraper
@@ -144,7 +167,10 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     fcf_margin_status = evaluate_status("FCF Margin", fcf_margin_consensus, ">20%")
     
     # Build Interest Coverage ratio
-    yahoo_interest_coverage = yahoo.get_interest_coverage(ticker_upper)
+    logger.info(f"📊 Fetching Interest Coverage...")
+    ic_start = time.time()
+    yahoo_interest_coverage = _time_scraper_call("Yahoo Interest Coverage", lambda: yahoo.get_interest_coverage(ticker_upper))
+    logger.info(f"⏱️  Interest Coverage total: {time.time() - ic_start:.2f}s")
     interest_coverage_values = [
         SourceValue(source="Morningstar", value=None),  # TODO: Add Morningstar scraper
         SourceValue(source="Koyfin", value=None),  # TODO: Add Koyfin scraper
@@ -155,8 +181,11 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     interest_coverage_status = evaluate_status("Interest Coverage", interest_coverage_consensus, "≥3-4x")
     
     # Fetch P/E Ratio from Finviz and Yahoo Finance
-    finviz_pe = finviz.get_pe_ratio(ticker_upper)
-    yahoo_pe = yahoo.get_pe_ratio(ticker_upper)
+    logger.info(f"📊 Fetching P/E Ratio...")
+    pe_start = time.time()
+    finviz_pe = _time_scraper_call("Finviz P/E Ratio", lambda: finviz.get_pe_ratio(ticker_upper))
+    yahoo_pe = _time_scraper_call("Yahoo P/E Ratio", lambda: yahoo.get_pe_ratio(ticker_upper))
+    logger.info(f"⏱️  P/E Ratio total: {time.time() - pe_start:.2f}s")
     
     # Build P/E Ratio
     pe_values = [
@@ -216,10 +245,41 @@ def fetch_analysis(ticker: str) -> AnalysisResponse:
     overall_score = sum(1 for r in ratios if r.status == "Pass" and r.metric != "P/E Ratio")
     max_score = 4  # 4 metrics that can pass (P/E is info only)
     
+    total_time = time.time() - start_time
+    logger.info(f"✅ Analysis complete for {ticker_upper} in {total_time:.2f}s")
+    logger.info(f"📈 Performance breakdown:")
+    logger.info(f"   - Total time: {total_time:.2f}s")
+    logger.info(f"   - Average per scraper: {total_time / 8:.2f}s")  # Approximate
+    
     return AnalysisResponse(
         ticker=ticker_upper,
         ratios=ratios,
         overall_score=overall_score,
-        max_score=max_score
+        max_score=max_score,
+        execution_time=round(total_time, 2)  # Round to 2 decimal places
     )
+
+
+def _time_scraper_call(scraper_name: str, scraper_func) -> Optional[float]:
+    """
+    Execute a scraper call and log the execution time.
+    
+    Args:
+        scraper_name: Name of the scraper for logging
+        scraper_func: Function to execute (lambda)
+        
+    Returns:
+        Result from scraper_func
+    """
+    start = time.time()
+    try:
+        result = scraper_func()
+        elapsed = time.time() - start
+        cache_status = "💾 CACHED" if elapsed < 0.1 else "🌐 LIVE"
+        logger.info(f"   {cache_status} {scraper_name}: {elapsed:.2f}s → {result if result is not None else 'None'}")
+        return result
+    except Exception as e:
+        elapsed = time.time() - start
+        logger.error(f"   ❌ {scraper_name}: {elapsed:.2f}s → ERROR: {e}")
+        return None
 

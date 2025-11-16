@@ -396,27 +396,23 @@ We're creating a "contract" between the backend and frontend - like a menu at a 
 #### 4.8: ROIC - Compléter toutes les sources
 **Objectif** : Implémenter ROIC pour QuickFS, Morningstar et Koyfin, puis comparer les 3 valeurs.
 
+**Note** : Macrotrends n'a pas de page ROIC directe (seulement ROI qui est différent). On utilisera QuickFS, Morningstar et Koyfin pour ROIC.
+
 ##### 4.8.1: QuickFS Scraper - ROIC
 - [x] Create `app/scrapers/quickfs.py` ✅ (Déjà créé)
-- [ ] Implement `get_roic(ticker)` method (déjà implémenté, à tester)
-- [ ] **TEST API CALL**: Test scraper with PLTR → Get value
-- [ ] **VERIFY SOURCE**: Open https://quickfs.net/company/PLTR → Check ROIC
-- [ ] **COMPARE**: Does scraper value match website?
-- [ ] If match: ✅ Verified, proceed to integrate
-- [ ] If no match: ❌ Fix scraper, re-test
-- [ ] Repeat verification with NVDA
-- [ ] **ONLY AFTER VERIFICATION**: Integrate into API
+- [x] Implement `get_roic(ticker)` method ✅ (Implémenté avec Selenium)
+- [x] **STRATEGY**: Uses Selenium with undetected-chromedriver to render JavaScript, extracts "Return on Invested Capital" from main table ✅
+- [x] **TEST API CALL**: Test scraper with PLTR → Get value ✅ (10.0% - matches website)
+- [x] **TEST API CALL**: Test scraper with NVDA → Get value ✅ (101.8% - matches website)
+- [x] **VERIFY SOURCE**: Values match QuickFS website ✅ **VERIFIED**
+- [x] **ONLY AFTER VERIFICATION**: Integrate into API ✅
 
 ##### 4.8.2: Morningstar Scraper - ROIC
-- [ ] Create `app/scrapers/morningstar.py` (si pas encore créé)
-- [ ] Implement `get_roic(ticker)` method in morningstar.py
-- [ ] **TEST API CALL**: Test scraper with PLTR → Get value
-- [ ] **VERIFY SOURCE**: Open https://www.morningstar.com/stocks/xnas/PLTR/quote → Key Ratios → ROIC
-- [ ] **COMPARE**: Does scraper value match website?
-- [ ] If match: ✅ Verified, proceed to integrate
-- [ ] If no match: ❌ Fix scraper, re-test
-- [ ] Repeat verification with NVDA
-- [ ] **ONLY AFTER VERIFICATION**: Integrate into API
+- [x] Create `app/scrapers/morningstar.py` ✅ (Déjà créé)
+- [ ] **STATUS**: ROIC not found on Key Ratios or Key Metrics pages ⚠️
+- [ ] **OPTION 1**: Calculate ROIC from available data (NOPAT, Invested Capital) - requires additional data extraction
+- [ ] **OPTION 2**: Skip Morningstar for ROIC, use QuickFS + Koyfin only
+- [ ] **DECISION**: To be determined after Koyfin implementation
 
 ##### 4.8.3: Koyfin Scraper - ROIC
 - [ ] Create `app/scrapers/koyfin.py`

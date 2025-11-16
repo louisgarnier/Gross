@@ -41,6 +41,7 @@
         <div v-if="isLoading" class="bg-white rounded-lg shadow p-8 text-center">
           <div class="animate-spin text-blue-500 text-4xl mb-4">⏳</div>
           <p class="text-gray-600">Analyzing stock data...</p>
+          <p class="text-sm text-gray-400 mt-2">This may take 10-20 seconds</p>
         </div>
 
         <!-- Error State -->
@@ -60,10 +61,13 @@
 
         <!-- Results Table -->
         <div v-else-if="analysisData">
-          <div class="mb-4">
+          <div class="mb-4 flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-900">
               Analysis for {{ analysisData.ticker }}
             </h2>
+            <div v-if="analysisData.execution_time" class="text-sm text-gray-500">
+              ⏱️ Loaded in {{ analysisData.execution_time }}s
+            </div>
           </div>
           <SummaryTable
             :ratios="analysisData.ratios"

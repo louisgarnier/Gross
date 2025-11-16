@@ -1,14 +1,14 @@
 """
-QuickFS scraper for financial ratios.
+Koyfin scraper for financial ratios.
 
-QuickFS URL format: https://quickfs.net/company/{TICKER}
+Koyfin URL format: https://app.koyfin.com/company/{TICKER}/overview
 
 IMPORTANT: This is web scraping, not an official API.
 - Be respectful: Add delays between requests
 - Rate limiting: Don't make too many requests too quickly
 - Cache results when possible to avoid repeated requests
 
-NOTE: QuickFS uses JavaScript to render content, so we use Selenium
+NOTE: Koyfin likely uses JavaScript to render content, so we may need Selenium
 to execute JavaScript and extract the rendered content.
 """
 
@@ -23,13 +23,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
 
 
-class QuickFSScraper:
-    """Scraper for QuickFS financial data using Selenium for JavaScript rendering."""
+class KoyfinScraper:
+    """Scraper for Koyfin financial data using Selenium for JavaScript rendering."""
     
-    BASE_URL = "https://quickfs.net/company"
+    BASE_URL = "https://app.koyfin.com/company"
     
     def __init__(self):
-        """Initialize QuickFS scraper with Selenium WebDriver."""
+        """Initialize Koyfin scraper with Selenium WebDriver."""
         self._driver = None
         self._last_request_time = 0
         self._min_delay = 2  # Minimum delay between requests (seconds)
@@ -84,12 +84,12 @@ class QuickFSScraper:
     
     def _get_company_page_selenium(self, ticker: str) -> Optional[BeautifulSoup]:
         """
-        Fetch the company page using Selenium to render JavaScript.
+        Fetch the company overview page using Selenium to render JavaScript.
         
         Returns BeautifulSoup of the rendered page.
         """
         ticker_upper = self.clean_ticker(ticker)
-        url = f"{self.BASE_URL}/{ticker_upper}"
+        url = f"{self.BASE_URL}/{ticker_upper}/overview"
         
         # Rate limiting
         current_time = time.time()
@@ -124,16 +124,17 @@ class QuickFSScraper:
                 # Wait for JavaScript to render content
                 time.sleep(3)
                 
-                # Try to find "ROIC" or "Return on Invested Capital" text
+                # Try to find ROIC or table content
                 try:
                     WebDriverWait(driver, 8).until(
                         EC.any_of(
                             EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'ROIC')]")),
-                            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Return on Invested Capital')]"))
+                            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Return on Invested Capital')]")),
+                            EC.presence_of_element_located((By.TAG_NAME, "table"))
                         )
                     )
                 except TimeoutException:
-                    print(f"Warning: Could not find ROIC on {url}")
+                    print(f"Warning: Could not find ROIC or table on {url}")
                     # Continue anyway
                 
             except TimeoutException:
@@ -147,7 +148,7 @@ class QuickFSScraper:
             return BeautifulSoup(page_source, 'lxml')
             
         except Exception as e:
-            print(f"Error fetching QuickFS page with Selenium: {e}")
+            print(f"Error fetching Koyfin page with Selenium: {e}")
             return None
     
     def __del__(self):
@@ -160,16 +161,15 @@ class QuickFSScraper:
     
     def _find_metric_value(self, soup: BeautifulSoup, metric_label: str) -> Optional[float]:
         """
-        Find a metric value in the QuickFS company page.
+        Find a metric value in the Koyfin company page.
         
-        QuickFS displays metrics in tables with multiple columns (years).
-        We search for the label text and extract the most recent value (last column).
+        Koyfin displays metrics in various formats (tables, cards, etc.).
+        We search for the label text and extract the value.
         """
         if not soup:
             return None
         
         # Strategy 1: Look for the metric in tables
-        # QuickFS has tables with rows like: [Label, Year1, Year2, ..., MostRecentYear]
         tables = soup.find_all('table')
         for table in tables:
             rows = table.find_all('tr')
@@ -180,25 +180,23 @@ class QuickFSScraper:
                 # Check if this row contains our metric label
                 for i, text in enumerate(cell_texts):
                     if metric_label.lower() in text.lower():
-                        # QuickFS format: [Label, Year1, Year2, ..., MostRecentYear]
-                        # We want the LAST cell (most recent year), not the adjacent one
+                        # Try last cell first (most recent)
                         if len(cells) > 1:
-                            # Try last cell first (most recent)
                             last_value_text = cell_texts[-1]
                             if last_value_text and last_value_text != '-':
                                 value = self.extract_number(last_value_text)
                                 if value is not None:
                                     return value
                             
-                            # If last cell is empty or '-', try second-to-last, etc.
-                            for j in range(len(cells) - 2, 0, -1):  # Go backwards from second-to-last
+                            # Try backwards from second-to-last
+                            for j in range(len(cells) - 2, 0, -1):
                                 value_text = cell_texts[j]
                                 if value_text and value_text != '-':
                                     value = self.extract_number(value_text)
                                     if value is not None:
                                         return value
                         
-                        # Fallback: try adjacent cell (for simple tables)
+                        # Fallback: try adjacent cell
                         if i + 1 < len(cells):
                             value_text = cell_texts[i + 1]
                             if value_text and value_text != '-':
@@ -207,30 +205,20 @@ class QuickFSScraper:
                                     return value
         
         # Strategy 2: Look for metric in divs/cards
-        # QuickFS might display metrics in card format
         all_divs = soup.find_all('div')
         for div in all_divs:
             div_text = div.get_text(strip=True)
             if metric_label.lower() in div_text.lower():
-                # Try to extract number from this div or its children
+                # Try to extract number from the div
                 value = self.extract_number(div_text)
                 if value is not None:
                     return value
-        
-        # Strategy 3: Search in page text with regex
-        page_text = soup.get_text()
-        import re
-        # Pattern: "ROIC" or "Return on Invested Capital" followed by number
-        pattern = rf'{re.escape(metric_label)}[:\s]+([\d.]+)%?'
-        match = re.search(pattern, page_text, re.IGNORECASE)
-        if match:
-            return float(match.group(1))
         
         return None
     
     def get_roic(self, ticker: str) -> Optional[float]:
         """
-        Get ROIC (Return on Invested Capital) percentage from QuickFS using Selenium.
+        Get ROIC (Return on Invested Capital) percentage from Koyfin using Selenium.
         
         POLICY: Uses Annual data (most recent fiscal year) for consistency with other sources.
         
@@ -244,7 +232,7 @@ class QuickFSScraper:
             Returns None if not found or error occurs
         """
         ticker_upper = self.clean_ticker(ticker)
-        cache_key = f"quickfs_roic_{ticker_upper}"
+        cache_key = f"koyfin_roic_{ticker_upper}"
         
         # Check cache first
         cached_value = scraper_cache.get(cache_key)
@@ -256,56 +244,14 @@ class QuickFSScraper:
         if not soup:
             return None
         
-        # Try different label variations (prioritize full label to avoid false matches)
-        # QuickFS uses "Return on Invested Capital" in the main table
+        # Try different label variations (prioritize full label)
         value = self._find_metric_value(soup, "Return on Invested Capital")
         if value is not None:
             scraper_cache.set(cache_key, value)
             return value
         
-        # Fallback to "ROIC" if full label not found
+        # Fallback to "ROIC"
         value = self._find_metric_value(soup, "ROIC")
-        if value is not None:
-            scraper_cache.set(cache_key, value)
-            return value
-        
-        return None
-    
-    def get_fcf_margin(self, ticker: str) -> Optional[float]:
-        """
-        Get FCF Margin percentage from QuickFS using Selenium.
-        
-        POLICY: Uses Annual data (most recent fiscal year) for consistency with other sources.
-        
-        Uses caching to avoid repeated requests to the same ticker.
-        
-        Args:
-            ticker: Stock ticker symbol (e.g., 'PLTR')
-            
-        Returns:
-            FCF Margin as a percentage (e.g., 25.5 for 25.5%)
-            Returns None if not found or error occurs
-        """
-        ticker_upper = self.clean_ticker(ticker)
-        cache_key = f"quickfs_fcf_margin_{ticker_upper}"
-        
-        # Check cache first
-        cached_value = scraper_cache.get(cache_key)
-        if cached_value is not None:
-            return cached_value
-        
-        # Fetch from website using Selenium (renders JavaScript)
-        soup = self._get_company_page_selenium(ticker_upper)
-        if not soup:
-            return None
-        
-        # Try different label variations
-        value = self._find_metric_value(soup, "FCF Margin")
-        if value is not None:
-            scraper_cache.set(cache_key, value)
-            return value
-        
-        value = self._find_metric_value(soup, "Free Cash Flow Margin")
         if value is not None:
             scraper_cache.set(cache_key, value)
             return value

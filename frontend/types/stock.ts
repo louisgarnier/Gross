@@ -24,5 +24,6 @@ export interface AnalysisResponse {
   ratios: RatioResult[]
   overall_score: number
   max_score: number
+  execution_time?: number  // Time taken to fetch all data (in seconds)
 }
 

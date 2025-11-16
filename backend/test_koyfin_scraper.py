@@ -1,19 +1,19 @@
 """
-Test script for QuickFS scraper.
+Test script for Koyfin scraper.
 
-This tests the scraper and compares results with the actual QuickFS website.
+This tests the scraper and compares results with the actual Koyfin website.
 Run this to verify the scraper is working correctly.
 """
 
-from app.scrapers.quickfs import QuickFSScraper
+from app.scrapers.koyfin import KoyfinScraper
 
-def test_quickfs_roic_pltr():
+def test_koyfin_roic_pltr():
     """Test ROIC for PLTR."""
     print("\n" + "="*50)
-    print("TEST: QuickFS ROIC for PLTR")
+    print("TEST: Koyfin ROIC for PLTR")
     print("="*50)
     
-    scraper = QuickFSScraper()
+    scraper = KoyfinScraper()
     
     print("Fetching page...")
     value = scraper.get_roic("PLTR")
@@ -21,7 +21,7 @@ def test_quickfs_roic_pltr():
     
     if value is not None:
         print(f"✅ PASSED - Got value: {value}%")
-        print("   Please verify on: https://quickfs.net/company/PLTR")
+        print("   Please verify on: https://app.koyfin.com/company/PLTR/overview")
         print("   Check the ROIC value")
         return True
     else:
@@ -32,13 +32,13 @@ def test_quickfs_roic_pltr():
         print("   - Need to check page structure")
         return False
 
-def test_quickfs_roic_nvda():
+def test_koyfin_roic_nvda():
     """Test ROIC for NVDA."""
     print("\n" + "="*50)
-    print("TEST: QuickFS ROIC for NVDA")
+    print("TEST: Koyfin ROIC for NVDA")
     print("="*50)
     
-    scraper = QuickFSScraper()
+    scraper = KoyfinScraper()
     
     print("Fetching page...")
     value = scraper.get_roic("NVDA")
@@ -46,7 +46,7 @@ def test_quickfs_roic_nvda():
     
     if value is not None:
         print(f"✅ PASSED - Got value: {value}%")
-        print("   Please verify on: https://quickfs.net/company/NVDA")
+        print("   Please verify on: https://app.koyfin.com/company/NVDA/overview")
         print("   Check the ROIC value")
         return True
     else:
@@ -59,15 +59,15 @@ def test_quickfs_roic_nvda():
 
 if __name__ == "__main__":
     print("\n" + "="*50)
-    print("QUICKFS SCRAPER TESTING")
+    print("KOYFIN SCRAPER TESTING")
     print("="*50)
-    print("\nMake sure you can access QuickFS")
+    print("\nMake sure you can access Koyfin")
     print("Check the values on the website before running tests.")
     print("\nStarting tests...\n")
     
     results = []
-    results.append(("PLTR ROIC", test_quickfs_roic_pltr()))
-    results.append(("NVDA ROIC", test_quickfs_roic_nvda()))
+    results.append(("PLTR ROIC", test_koyfin_roic_pltr()))
+    results.append(("NVDA ROIC", test_koyfin_roic_nvda()))
     
     # Summary
     print("\n" + "="*50)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     print("\n" + "="*50)
     if all_passed:
         print("🎉 ALL TESTS PASSED!")
-        print("\nNext step: Verify values match QuickFS website manually")
+        print("\nNext step: Verify values match Koyfin website manually")
         print("Then integrate into API")
     else:
         print("⚠️  SOME TESTS FAILED")
